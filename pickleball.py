@@ -3,6 +3,7 @@ import numpy.typing as npt
 import scipy.integrate as si
 import scipy.optimize as so
 import matplotlib.pyplot as plt
+from mayavi import mlab
 
 def main() -> None:
     # Define constants
@@ -19,57 +20,91 @@ def main() -> None:
     
     # Define input variables
     wind = 0.0
-    x0 = 0.0
-    y0 = 1.0
-    angle = 0.5 * np.pi / 4.0
+    # x0 = 0.0 # in (0, 4.572)
+    y0 = 1.0 # in (0, 2.1336)
+    # angle = 0.5 * np.pi / 4.0
     opponent = 10.0 # Between 8.8392 and 13.4112
     
     # Solve the system 
-    output = solve_system(x0, angle, y0, opponent, T_MIN, T_MAX, DRAG_COEF, wind, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS)
+    # print(solve_system(0.0, 1.0, y0, opponent, T_MIN, T_MAX, DRAG_COEF, wind, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS).t_events[1][0])
     
-    # Plot results
-    times_before_opponent = np.linspace(0.0, output.t_events[1][0], 100)
-    times_after_opponent = np.linspace(output.t_events[1][0], output.t_events[0][0], 100)
-    # Plot the ball trajectory
-    plt.plot((output.sol(times_before_opponent)[NUM["x"]]), (output.sol(times_before_opponent)[NUM["y"]]), c="b")
-    plt.plot((output.sol(times_after_opponent)[NUM["x"]]), (output.sol(times_after_opponent)[NUM["y"]]), c=(0.5,) * 3, ls=":")
-    # Plot the court
-    plt.axhline(0.0, c="k")
-    plt.axvline(0.0, c="k")
-    plt.axvline((COURT_LENGTH), c="k")
-    plt.plot((COURT_LENGTH / 2.0, COURT_LENGTH / 2.0), (0.0, f2m(3.0)), c="k")
-    # Show collision with opponent
-    plt.scatter((output.y_events[1][0][0]), (output.y_events[1][0][2]), s=25, c="k", zorder=10)
-    plt.text((output.y_events[1][0][0]), (output.y_events[1][0][2]), f"  {output.t_events[1][0]:.2} seconds")
-    # Formatting
-    plt.xlabel(NAMES[NUM["x"]])
-    plt.ylabel(NAMES[NUM["y"]])
-    plt.title(f"Ball Trajectory (Wind = {wind:.0f} m/s)")
-    plt.show()
+    GRID_SHAPE = (15, 15)
+    x0s, angles = np.meshgrid(np.linspace(0, 4.572, GRID_SHAPE[0]), np.linspace(0.0, np.pi / 4.0, GRID_SHAPE[1]))
+    x0s = x0s.T
+    angles = angles.T
+    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     
-    # Plot speed over time
-    plt.plot(times_before_opponent, 
-             np.sqrt(output.sol(times_before_opponent)[NUM["vx"]] ** 2.0 
-                     + output.sol(times_before_opponent)[NUM["vy"]] ** 2.0), c="b")
-    plt.plot(times_after_opponent, 
-             np.sqrt(output.sol(times_after_opponent)[NUM["vx"]] ** 2.0 
-                     + output.sol(times_after_opponent)[NUM["vy"]] ** 2.0), c=(0.5,) * 3, ls=":")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Ball Speed (m/s)")
-    plt.title(f"Ball Speed Over Time (Wind = {wind:.0f} m/s)")
-    plt.show()
+    for wind, color, label in zip((-5.0, 0.0, 5.0), ((1.0, 0.0, 0.0), (0.5,) * 3, (0.0, 0.0, 1.0)), ("Against the Wind", "No Wind", "With the Wind")):
+        times_to_opponent = np.asarray([solve_system(x0, 
+                                                    angle, 
+                                                    y0, 
+                                                    opponent, 
+                                                    T_MIN, 
+                                                    T_MAX, 
+                                                    DRAG_COEF, 
+                                                    wind, 
+                                                    GRAVITY, 
+                                                    COURT_LENGTH, 
+                                                    INITIAL_SPEED_GUESS).t_events[1][0] 
+                                        for x0, angle in zip(x0s.ravel(), angles.ravel())]).reshape(GRID_SHAPE)
+        
+        # Plot 3D
+        mlab.surf(x0s, angles, times_to_opponent, color=color)
+        # surface = ax.plot_surface(x0s, angles, times_to_opponent, color=color, label=label)
     
-    # Plot speed relative to wind over time
-    plt.plot(times_before_opponent, 
-             np.sqrt((output.sol(times_before_opponent)[NUM["vx"]] - wind) ** 2.0 
-                     + output.sol(times_before_opponent)[NUM["vy"]] ** 2.0), c="b")
-    plt.plot(times_after_opponent, 
-             np.sqrt((output.sol(times_after_opponent)[NUM["vx"]] - wind) ** 2.0 
-                     + output.sol(times_after_opponent)[NUM["vy"]] ** 2.0), c=(0.5,) * 3, ls=":")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Ball Speed Relative to Air (m/s)")
-    plt.title(f"Ball Speed Relative to Air Over Time (Wind = {wind:.0f} m/s)")
-    plt.show()
+    mlab.show()
+    
+    # ax.set_xlabel("Initial Position (m)")
+    # ax.set_ylabel("Launch Angle (rad)")
+    # ax.set_zlabel("Time to Opponent (s)")
+    # ax.legend()
+    # plt.show()
+    
+    # # Plot results
+    # times_before_opponent = np.linspace(0.0, output.t_events[1][0], 100)
+    # times_after_opponent = np.linspace(output.t_events[1][0], output.t_events[0][0], 100)
+    # # Plot the ball trajectory
+    # plt.plot((output.sol(times_before_opponent)[NUM["x"]]), (output.sol(times_before_opponent)[NUM["y"]]), c="b")
+    # plt.plot((output.sol(times_after_opponent)[NUM["x"]]), (output.sol(times_after_opponent)[NUM["y"]]), c=(0.5,) * 3, ls=":")
+    # # Plot the court
+    # plt.axhline(0.0, c="k")
+    # plt.axvline(0.0, c="k")
+    # plt.axvline((COURT_LENGTH), c="k")
+    # plt.plot((COURT_LENGTH / 2.0, COURT_LENGTH / 2.0), (0.0, f2m(3.0)), c="k")
+    # # Show collision with opponent
+    # plt.scatter((output.y_events[1][0][0]), (output.y_events[1][0][2]), s=25, c="k", zorder=10)
+    # plt.text((output.y_events[1][0][0]), (output.y_events[1][0][2]), f"  {output.t_events[1][0]:.2} seconds")
+    # # Formatting
+    # plt.xlabel(NAMES[NUM["x"]])
+    # plt.ylabel(NAMES[NUM["y"]])
+    # plt.title(f"Ball Trajectory (Wind = {wind:.0f} m/s)")
+    # plt.show()
+    
+    # # Plot speed over time
+    # plt.plot(times_before_opponent, 
+    #          np.sqrt(output.sol(times_before_opponent)[NUM["vx"]] ** 2.0 
+    #                  + output.sol(times_before_opponent)[NUM["vy"]] ** 2.0), c="b")
+    # plt.plot(times_after_opponent, 
+    #          np.sqrt(output.sol(times_after_opponent)[NUM["vx"]] ** 2.0 
+    #                  + output.sol(times_after_opponent)[NUM["vy"]] ** 2.0), c=(0.5,) * 3, ls=":")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Ball Speed (m/s)")
+    # plt.title(f"Ball Speed Over Time (Wind = {wind:.0f} m/s)")
+    # plt.show()
+    
+    # # Plot speed relative to wind over time
+    # plt.plot(times_before_opponent, 
+    #          np.sqrt((output.sol(times_before_opponent)[NUM["vx"]] - wind) ** 2.0 
+    #                  + output.sol(times_before_opponent)[NUM["vy"]] ** 2.0), c="b")
+    # plt.plot(times_after_opponent, 
+    #          np.sqrt((output.sol(times_after_opponent)[NUM["vx"]] - wind) ** 2.0 
+    #                  + output.sol(times_after_opponent)[NUM["vy"]] ** 2.0), c=(0.5,) * 3, ls=":")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Ball Speed Relative to Air (m/s)")
+    # plt.title(f"Ball Speed Relative to Air Over Time (Wind = {wind:.0f} m/s)")
+    # plt.show()
+
+
 
 def solve_system(x0: float, 
                  angle: float, 
@@ -122,8 +157,6 @@ def solve_system(x0: float,
                                                      events=hit_ground, 
                                                      args=(drag_coef, wind, gravity)).y_events[0][0][0] - court_length, 
                               inital_speed_guess)[0]
-    
-    print(f"Optimal Speed: {optimal_speed} m/s")
     
     # Solve the differential equation with that velocity
     return si.solve_ivp(derivatives, 
