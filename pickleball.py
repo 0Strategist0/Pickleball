@@ -24,58 +24,10 @@ def main() -> None:
     angle = 0.1 * np.pi / 4.0
     opponent = 10.0 # Between 8.8392 and 13.4112
     
-    # Define events to track
-    def hit_ground(_t: float, values: npt.ArrayLike, _drag_coef: float, _wind: float, gravity: float) -> float:
-        """Return the y position of the pickleball for detection of ground collision
-
-        Args:
-            - _t (float): Time at which to return the y position. Not used for returning y position
-            - values (npt.ArrayLike): The current values of [x position, x velocity, y position, y velocity]
-            - _drag_coef (float): The coefficient C used in the calculation of the drag force Cv**2. Not used for returning y position
-            - _wind (float): The wind velocity in the x direction. Not used for returning y position
-            - _gravity (float): Gravitational acceleration. Not used for returning y position
-
-        Returns:
-            - float: The y position of the pickleball
-        """
-        
-        return values[2]
-    hit_ground.terminal = True
+    # Solve the system 
+    output = solve_system(x0, angle, y0, opponent, T_MIN, T_MAX, DRAG_COEF, wind, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS)
     
-    def reached_opponent(_t: float, values: npt.ArrayLike, _drag_coef: float, _wind: float, gravity: float) -> float:
-        """Return the x offset of the pickleball from the opponent for detecting opponent collision
-
-        Args:
-            - _t (float): Time at which to return the y position. Not used for returning x offset
-            - values (npt.ArrayLike): The current values of [x position, x velocity, y position, y velocity]
-            - _drag_coef (float): The coefficient C used in the calculation of the drag force Cv**2. Not used for returning x offset
-            - _wind (float): The wind velocity in the x direction. Not used for returning x offset
-            - _gravity (float): Gravitational acceleration. Not used for returning x offset
-
-        Returns:
-            - float: The x offset of the pickleball from the opponent
-        """
-        
-        return values[0] - opponent
-    
-    # Find velocity where ground touch is at end of court
-    optimal_speed = so.fsolve(lambda v: si.solve_ivp(derivatives, 
-                                                     (T_MIN, T_MAX), 
-                                                     (x0, v[0] * np.cos(angle), y0, v[0] * np.sin(angle)), 
-                                                     events=hit_ground, 
-                                                     args=(DRAG_COEF, wind, GRAVITY)).y_events[0][0][0] - COURT_LENGTH, 
-                              INITIAL_SPEED_GUESS)[0]
-    
-    print(f"Optimal Speed: {optimal_speed} m/s")
-    
-    # Solve the differential equation with that velocity
-    output = si.solve_ivp(derivatives, 
-                          (T_MIN, T_MAX), 
-                          (x0, optimal_speed * np.cos(angle), y0, optimal_speed * np.sin(angle)), 
-                          dense_output=True, 
-                          events=[hit_ground, reached_opponent], args=(DRAG_COEF, wind, GRAVITY))
-    
-    # Plot results
+    # # Plot results
     # times_before_opponent = np.linspace(0.0, output.t_events[1][0], 100)
     # times_after_opponent = np.linspace(output.t_events[1][0], output.t_events[0][0], 100)
     # # Plot the ball trajectory
@@ -119,6 +71,66 @@ def main() -> None:
     # plt.title(f"Ball Speed Relative to Air Over Time (Wind = {wind:.0f} m/s)")
     # plt.show()
 
+def solve_system(x0: float, 
+                 angle: float, 
+                 y0: float, 
+                 opponent: float, 
+                 tmin: float, 
+                 tmax: float, 
+                 drag_coef: float, 
+                 wind: float, 
+                 gravity: float, 
+                 court_length: float, 
+                 inital_speed_guess: float) -> si._ivp.ivp.OdeResult:
+    def hit_ground(_t: float, values: npt.ArrayLike, _drag_coef: float, _wind: float, gravity: float) -> float:
+        """Return the y position of the pickleball for detection of ground collision
+
+        Args:
+            - _t (float): Time at which to return the y position. Not used for returning y position
+            - values (npt.ArrayLike): The current values of [x position, x velocity, y position, y velocity]
+            - _drag_coef (float): The coefficient C used in the calculation of the drag force Cv**2. Not used for returning y position
+            - _wind (float): The wind velocity in the x direction. Not used for returning y position
+            - _gravity (float): Gravitational acceleration. Not used for returning y position
+
+        Returns:
+            - float: The y position of the pickleball
+        """
+        
+        return values[2]
+    hit_ground.terminal = True
+    
+    def reached_opponent(_t: float, values: npt.ArrayLike, _drag_coef: float, _wind: float, gravity: float) -> float:
+        """Return the x offset of the pickleball from the opponent for detecting opponent collision
+
+        Args:
+            - _t (float): Time at which to return the y position. Not used for returning x offset
+            - values (npt.ArrayLike): The current values of [x position, x velocity, y position, y velocity]
+            - _drag_coef (float): The coefficient C used in the calculation of the drag force Cv**2. Not used for returning x offset
+            - _wind (float): The wind velocity in the x direction. Not used for returning x offset
+            - _gravity (float): Gravitational acceleration. Not used for returning x offset
+
+        Returns:
+            - float: The x offset of the pickleball from the opponent
+        """
+        
+        return values[0] - opponent
+    
+    # Find velocity where ground touch is at end of court
+    optimal_speed = so.fsolve(lambda v: si.solve_ivp(derivatives, 
+                                                     (tmin, tmax), 
+                                                     (x0, v[0] * np.cos(angle), y0, v[0] * np.sin(angle)), 
+                                                     events=hit_ground, 
+                                                     args=(drag_coef, wind, gravity)).y_events[0][0][0] - court_length, 
+                              inital_speed_guess)[0]
+    
+    print(f"Optimal Speed: {optimal_speed} m/s")
+    
+    # Solve the differential equation with that velocity
+    return si.solve_ivp(derivatives, 
+                        (tmin, tmax), 
+                        (x0, optimal_speed * np.cos(angle), y0, optimal_speed * np.sin(angle)), 
+                        dense_output=True, 
+                        events=[hit_ground, reached_opponent], args=(drag_coef, wind, gravity))
 
 def derivatives(_t: float, current_values: npt.ArrayLike, drag_coef: float, wind: float, gravity: float) -> npt.ArrayLike:
     """Calculate the derivatives of x position, x velocity, y position, and y velocity. 
