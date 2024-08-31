@@ -3,7 +3,6 @@ import numpy.typing as npt
 import scipy.integrate as si
 import scipy.optimize as so
 import matplotlib.pyplot as plt
-import matplotlib.typing as ty
 # from mayavi import mlab
 from tqdm import tqdm
 
@@ -22,17 +21,17 @@ def main() -> None:
     print(f"Drag Coefficient: {DRAG_COEF} 1/m")
     
     # Plot the time difference histogram
-    # time_difference_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
+    time_difference_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
     # Plot the initial speed histogram
-    
+    velocity_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
     # Plot some trajectories
-    for wind in (-15.0, 15.0, -5.0, 5.0):
+    for wind in (mph2mps(-15.0), mph2mps(15.0), mph2mps(-10.0), mph2mps(10.0), mph2mps(-5.0), mph2mps(5.0)):
         trajectory_plot(x0=0.0, 
-                        angle=np.deg2rad(15.0), 
+                        angle=np.deg2rad(5.0), 
                         y0=1.0, 
-                        opponent=f2m(40.0), 
+                        opponent=f2m(43.0), 
                         wind=wind, 
                         tmin=T_MIN, 
                         tmax=T_MAX, 
@@ -135,8 +134,8 @@ def trajectory_plot(x0: float,
     # Formatting
     plt.xlabel("Horizontal Position (feet)")
     plt.ylabel("Vertical Position (feet)")
-    plt.title(f"Ball Trajectory (Wind = {wind:.0f} m/s)")
-    plt.savefig(f"Ball_Trajectory_wind_{wind:.0f}mps.png")
+    plt.title(f"Ball Trajectory (Wind = {mps2mph(wind):.0f} mph)")
+    plt.savefig(f"Trajectory_wind={mps2mph(wind):.0f}mph,x0={m2f(x0):.0f}ft,z0={m2f(opponent):.0f}ft,angle={np.rad2deg(angle):.0f}deg.png")
 
 def time_difference_plot(n_samples: int, 
                          max_wind: float,
@@ -237,11 +236,10 @@ def velocity_plot(n_samples: int,
     """
     
     # Initialize with random parameters
-    wind_rand = np.random.uniform(0.0, max_wind, n_samples)
+    wind_rand = np.random.uniform(-max_wind, max_wind, n_samples)
     x0_rand = np.random.uniform(0.0, f2m(15.0), n_samples)
     y0_rand = np.random.uniform(0.0, f2m(7.0), n_samples)
     angle_rand = np.random.uniform(np.deg2rad(0.0), np.deg2rad(30.0), n_samples)
-    opponent_rand = np.random.uniform(f2m(29.0), f2m(44.0), n_samples)
     
     def hit_ground(_t: float, values: npt.ArrayLike, _drag_coef: float, _wind: float, gravity: float) -> float:
         """Return the y position of the pickleball for detection of ground collision
@@ -260,54 +258,25 @@ def velocity_plot(n_samples: int,
         return values[2]
     hit_ground.terminal = True
     
-    # Find velocity where ground touch is at end of court
-    optimal_speed = so.fsolve(lambda v: si.solve_ivp(derivatives, 
-                                                     (tmin, tmax), 
-                                                     (x0, v[0] * np.cos(angle), y0, v[0] * np.sin(angle)), 
-                                                     events=hit_ground, 
-                                                     args=(drag_coef, wind, gravity)).y_events[0][0][0] - court_length, 
+    # Loop through and find times for all random params
+    velocities = np.zeros(n_samples)
+    for index, (wind, x0, y0, angle) in tqdm(enumerate(zip(wind_rand, x0_rand, y0_rand, angle_rand))):
+        velocities[index] = so.fsolve(lambda v: si.solve_ivp(derivatives, 
+                                                             (tmin, tmax), 
+                                                             (x0, v[0] * np.cos(angle), y0, v[0] * np.sin(angle)), 
+                                                             events=hit_ground, 
+                                                             args=(drag_coef, wind, gravity)).y_events[0][0][0] - court_length, 
                               initial_speed_guess)[0]
     
-    # Loop through and find times for all random params
-    times = np.zeros(n_samples)
-    for index, (wind, x0, y0, angle, opponent) in tqdm(enumerate(zip(wind_rand, x0_rand, y0_rand, angle_rand, opponent_rand))):
-        time_with_wind = solve_system(x0, 
-                                      angle, 
-                                      y0, 
-                                      opponent, 
-                                      tmin, 
-                                      tmax, 
-                                      drag_coef, 
-                                      wind, 
-                                      gravity, 
-                                      court_length, 
-                                      initial_speed_guess).t_events[1]
-        
-        time_against_wind = solve_system(x0, 
-                                         angle, 
-                                         y0, 
-                                         opponent, 
-                                         tmin, 
-                                         tmax, 
-                                         drag_coef, 
-                                         -wind, 
-                                         gravity, 
-                                         court_length, 
-                                         initial_speed_guess).t_events[1]
-        
-        times[index] = time_with_wind[0] - time_against_wind[0] if len(time_with_wind) > 0 and len(time_against_wind) > 0 else np.nan
-    
-    print(f"{np.count_nonzero(np.isnan(times))} NaN events")
-    
-    plt.hist2d(mps2mph(wind_rand[np.isfinite(times)]), times[np.isfinite(times)], bins=20)
-    wind_range = np.linspace(0.0, max_wind)
+    plt.hist2d(mps2mph(wind_rand[np.isfinite(velocities)]), np.log10(mps2mph(velocities[np.isfinite(velocities)])), bins=20)
+    wind_range = np.linspace(-max_wind, max_wind)
     plt.plot(mps2mph(wind_range), 
-             kde(wind_range, (wind_rand[np.isfinite(times)], times[np.isfinite(times)]), kde_stdev), 
+             kde(wind_range, (wind_rand[np.isfinite(velocities)], np.log10(mps2mph(velocities[np.isfinite(velocities)]))), kde_stdev), 
              c="cyan", 
-             label="Average Time Difference")
+             label="Average Hit Speed")
     plt.xlabel("Wind Speed (mph)")
-    plt.ylabel("Time Difference Playing With Wind Versus Against Wind (s)")
-    plt.title("Difference in Time-To-Opponent Playing With and\nAgainst Wind for Various Wind Speeds")
+    plt.ylabel("Log of Hit Speed (log10(mph))")
+    plt.title("Hit Speed Required at Different Wind Speeds")
     cbar = plt.colorbar()
     cbar.set_label("Number of Hits")
     plt.legend()
