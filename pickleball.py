@@ -3,6 +3,7 @@ import numpy.typing as npt
 import scipy.integrate as si
 import scipy.optimize as so
 import matplotlib.pyplot as plt
+import matplotlib.typing as ty
 # from mayavi import mlab
 from tqdm import tqdm
 
@@ -14,38 +15,32 @@ def main() -> None:
     INITIAL_SPEED_GUESS = 10.0
     COURT_LENGTH = f2m(44.0)
     GRAVITY = 9.81
-    N_RANDOM_SAMPLES = 1000
+    N_RANDOM_SAMPLES = 10000
+    KDE_STDEV = 2.0
+    MAX_WIND = 15.0
     
     print(f"Drag Coefficient: {DRAG_COEF} 1/m")
     
     # Plot the time difference histogram
-    time_difference_plot(N_RANDOM_SAMPLES, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS)
+    # time_difference_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
-    # ax.set_xlabel("Initial Position (m)")
-    # ax.set_ylabel("Launch Angle (rad)")
-    # ax.set_zlabel("Time to Opponent (s)")
-    # ax.legend()
-    # plt.show()
+    # Plot the initial speed histogram
     
-    # # Plot results
-    # times_before_opponent = np.linspace(0.0, output.t_events[1][0], 100)
-    # times_after_opponent = np.linspace(output.t_events[1][0], output.t_events[0][0], 100)
-    # # Plot the ball trajectory
-    # plt.plot((output.sol(times_before_opponent)[NUM["x"]]), (output.sol(times_before_opponent)[NUM["y"]]), c="b")
-    # plt.plot((output.sol(times_after_opponent)[NUM["x"]]), (output.sol(times_after_opponent)[NUM["y"]]), c=(0.5,) * 3, ls=":")
-    # # Plot the court
-    # plt.axhline(0.0, c="k")
-    # plt.axvline(0.0, c="k")
-    # plt.axvline((COURT_LENGTH), c="k")
-    # plt.plot((COURT_LENGTH / 2.0, COURT_LENGTH / 2.0), (0.0, f2m(3.0)), c="k")
-    # # Show collision with opponent
-    # plt.scatter((output.y_events[1][0][0]), (output.y_events[1][0][2]), s=25, c="k", zorder=10)
-    # plt.text((output.y_events[1][0][0]), (output.y_events[1][0][2]), f"  {output.t_events[1][0]:.2} seconds")
-    # # Formatting
-    # plt.xlabel(NAMES[NUM["x"]])
-    # plt.ylabel(NAMES[NUM["y"]])
-    # plt.title(f"Ball Trajectory (Wind = {wind:.0f} m/s)")
-    # plt.show()
+    
+    # Plot some trajectories
+    for wind in (-15.0, 15.0, -5.0, 5.0):
+        trajectory_plot(x0=0.0, 
+                        angle=np.deg2rad(15.0), 
+                        y0=1.0, 
+                        opponent=f2m(40.0), 
+                        wind=wind, 
+                        tmin=T_MIN, 
+                        tmax=T_MAX, 
+                        drag_coef=DRAG_COEF, 
+                        gravity=GRAVITY, 
+                        court_length=COURT_LENGTH, 
+                        initial_speed_guess=INITIAL_SPEED_GUESS)
+    
     
     # # Plot speed over time
     # plt.plot(times_before_opponent, 
@@ -103,27 +98,71 @@ def main() -> None:
     # mlab.axes(xlabel="Initial Position", ylabel="Launch Angle", zlabel="Time to Opponent")
     # mlab.show()
 
+def kde(x: npt.ArrayLike, points: npt.ArrayLike, stdev: float) -> npt.ArrayLike:
+    points = np.asarray(points)
+    
+    return (np.sum(points[1, np.newaxis] * np.exp(-0.5 * ((points[0, np.newaxis] - x[:, np.newaxis]) / stdev) ** 2.0), axis=1)
+            / np.sum(np.exp(-0.5 * ((points[0, np.newaxis] - x[:, np.newaxis]) / stdev) ** 2.0), axis=1))
+
+def trajectory_plot(x0: float, 
+                    angle: float, 
+                    y0: float, 
+                    opponent: float, 
+                    tmin: float, 
+                    tmax: float, 
+                    drag_coef: float, 
+                    wind: float, 
+                    gravity: float, 
+                    court_length: float, 
+                    initial_speed_guess: float) -> None:
+    output = solve_system(x0, angle, y0, opponent, tmin, tmax, drag_coef, wind, gravity, court_length, initial_speed_guess)
+    
+    # Plot results
+    times_before_opponent = np.linspace(0.0, output.t_events[1][0], 100)
+    times_after_opponent = np.linspace(output.t_events[1][0], output.t_events[0][0], 100)
+    plt.figure()
+    # Plot the ball trajectory
+    plt.plot(m2f(output.sol(times_before_opponent)[0]), m2f(output.sol(times_before_opponent)[2]), c="b")
+    plt.plot(m2f(output.sol(times_after_opponent)[0]), m2f(output.sol(times_after_opponent)[2]), c=(0.5,) * 3, ls=":")
+    # Plot the court
+    plt.axhline(0.0, c="k")
+    plt.axvline(0.0, c="k")
+    plt.axvline(m2f(court_length), c="k")
+    plt.plot((m2f(court_length / 2.0), m2f(court_length / 2.0)), (0.0, 3.0), c="k")
+    # Show collision with opponent
+    plt.scatter(m2f(output.y_events[1][0][0]), m2f(output.y_events[1][0][2]), s=25, c="k", zorder=10)
+    plt.text(m2f(output.y_events[1][0][0]), m2f(output.y_events[1][0][2]), f"  {output.t_events[1][0]:.2} seconds")
+    # Formatting
+    plt.xlabel("Horizontal Position (feet)")
+    plt.ylabel("Vertical Position (feet)")
+    plt.title(f"Ball Trajectory (Wind = {wind:.0f} m/s)")
+    plt.savefig(f"Ball_Trajectory_wind_{wind:.0f}mps.png")
+
 def time_difference_plot(n_samples: int, 
+                         max_wind: float,
                          tmin: float, 
                          tmax: float, 
                          drag_coef: float, 
                          gravity: float, 
                          court_length: float, 
-                         initial_speed_guess: float) -> None:
+                         initial_speed_guess: float, 
+                         kde_stdev: float) -> None:
     """Plot the difference in time-to-opponent for a variety of wind speeds
 
     Args:
         n_samples (int): The number of random samples to calculate time for
+        max_wind (float): The maximum wind speed to plot
         tmin (float): The start time of the ODE solver
         tmax (float): The end time of the ODE solver
         drag_coef (float): The drag coefficient
         gravity (float): Gravitational acceleration
         court_length (float): The length of the court
         initial_speed_guess (float): The initial speed to guess when solving
+        kde_stdev (float): The standard deviation to use for kernel density estimation
     """
     
     # Initialize with random parameters
-    wind_rand = np.random.uniform(0.0, 15.0, n_samples)
+    wind_rand = np.random.uniform(0.0, max_wind, n_samples)
     x0_rand = np.random.uniform(0.0, f2m(15.0), n_samples)
     y0_rand = np.random.uniform(0.0, f2m(7.0), n_samples)
     angle_rand = np.random.uniform(np.deg2rad(0.0), np.deg2rad(30.0), n_samples)
@@ -160,11 +199,118 @@ def time_difference_plot(n_samples: int,
     
     print(f"{np.count_nonzero(np.isnan(times))} NaN events")
     
-    plt.hist2d(wind_rand[np.isfinite(times)], times[np.isfinite(times)], bins=20)
-    plt.xlabel("Wind Speed")
-    plt.ylabel("Time Difference Playing With Wind Versus Against Wind")
+    plt.hist2d(mps2mph(wind_rand[np.isfinite(times)]), times[np.isfinite(times)], bins=20)
+    wind_range = np.linspace(0.0, max_wind)
+    plt.plot(mps2mph(wind_range), 
+             kde(wind_range, (wind_rand[np.isfinite(times)], times[np.isfinite(times)]), kde_stdev), 
+             c="cyan", 
+             label="Average Time Difference")
+    plt.xlabel("Wind Speed (mph)")
+    plt.ylabel("Time Difference Playing With Wind Versus Against Wind (s)")
     plt.title("Difference in Time-To-Opponent Playing With and\nAgainst Wind for Various Wind Speeds")
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.set_label("Number of Hits")
+    plt.legend()
+    plt.show()
+
+def velocity_plot(n_samples: int, 
+                  max_wind: float,
+                  tmin: float, 
+                  tmax: float, 
+                  drag_coef: float, 
+                  gravity: float, 
+                  court_length: float, 
+                  initial_speed_guess: float, 
+                  kde_stdev: float) -> None:
+    """Plot the difference in time-to-opponent for a variety of wind speeds
+
+    Args:
+        n_samples (int): The number of random samples to calculate time for
+        max_wind (float): The maximum wind speed to plot
+        tmin (float): The start time of the ODE solver
+        tmax (float): The end time of the ODE solver
+        drag_coef (float): The drag coefficient
+        gravity (float): Gravitational acceleration
+        court_length (float): The length of the court
+        initial_speed_guess (float): The initial speed to guess when solving
+        kde_stdev (float): The standard deviation to use for kernel density estimation
+    """
+    
+    # Initialize with random parameters
+    wind_rand = np.random.uniform(0.0, max_wind, n_samples)
+    x0_rand = np.random.uniform(0.0, f2m(15.0), n_samples)
+    y0_rand = np.random.uniform(0.0, f2m(7.0), n_samples)
+    angle_rand = np.random.uniform(np.deg2rad(0.0), np.deg2rad(30.0), n_samples)
+    opponent_rand = np.random.uniform(f2m(29.0), f2m(44.0), n_samples)
+    
+    def hit_ground(_t: float, values: npt.ArrayLike, _drag_coef: float, _wind: float, gravity: float) -> float:
+        """Return the y position of the pickleball for detection of ground collision
+
+        Args:
+            - _t (float): Time at which to return the y position. Not used for returning y position
+            - values (npt.ArrayLike): The current values of [x position, x velocity, y position, y velocity]
+            - _drag_coef (float): The coefficient C used in the calculation of the drag force Cv**2. Not used for returning y position
+            - _wind (float): The wind velocity in the x direction. Not used for returning y position
+            - _gravity (float): Gravitational acceleration. Not used for returning y position
+
+        Returns:
+            - float: The y position of the pickleball
+        """
+        
+        return values[2]
+    hit_ground.terminal = True
+    
+    # Find velocity where ground touch is at end of court
+    optimal_speed = so.fsolve(lambda v: si.solve_ivp(derivatives, 
+                                                     (tmin, tmax), 
+                                                     (x0, v[0] * np.cos(angle), y0, v[0] * np.sin(angle)), 
+                                                     events=hit_ground, 
+                                                     args=(drag_coef, wind, gravity)).y_events[0][0][0] - court_length, 
+                              initial_speed_guess)[0]
+    
+    # Loop through and find times for all random params
+    times = np.zeros(n_samples)
+    for index, (wind, x0, y0, angle, opponent) in tqdm(enumerate(zip(wind_rand, x0_rand, y0_rand, angle_rand, opponent_rand))):
+        time_with_wind = solve_system(x0, 
+                                      angle, 
+                                      y0, 
+                                      opponent, 
+                                      tmin, 
+                                      tmax, 
+                                      drag_coef, 
+                                      wind, 
+                                      gravity, 
+                                      court_length, 
+                                      initial_speed_guess).t_events[1]
+        
+        time_against_wind = solve_system(x0, 
+                                         angle, 
+                                         y0, 
+                                         opponent, 
+                                         tmin, 
+                                         tmax, 
+                                         drag_coef, 
+                                         -wind, 
+                                         gravity, 
+                                         court_length, 
+                                         initial_speed_guess).t_events[1]
+        
+        times[index] = time_with_wind[0] - time_against_wind[0] if len(time_with_wind) > 0 and len(time_against_wind) > 0 else np.nan
+    
+    print(f"{np.count_nonzero(np.isnan(times))} NaN events")
+    
+    plt.hist2d(mps2mph(wind_rand[np.isfinite(times)]), times[np.isfinite(times)], bins=20)
+    wind_range = np.linspace(0.0, max_wind)
+    plt.plot(mps2mph(wind_range), 
+             kde(wind_range, (wind_rand[np.isfinite(times)], times[np.isfinite(times)]), kde_stdev), 
+             c="cyan", 
+             label="Average Time Difference")
+    plt.xlabel("Wind Speed (mph)")
+    plt.ylabel("Time Difference Playing With Wind Versus Against Wind (s)")
+    plt.title("Difference in Time-To-Opponent Playing With and\nAgainst Wind for Various Wind Speeds")
+    cbar = plt.colorbar()
+    cbar.set_label("Number of Hits")
+    plt.legend()
     plt.show()
 
 def solve_system(x0: float, 
@@ -177,7 +323,8 @@ def solve_system(x0: float,
                  wind: float, 
                  gravity: float, 
                  court_length: float, 
-                 inital_speed_guess: float) -> si._ivp.ivp.OdeResult:
+                 initial_speed_guess: float, 
+                 return_speed: bool = False) -> si._ivp.ivp.OdeResult | tuple[si._ivp.ivp.OdeResult, float]:
     def hit_ground(_t: float, values: npt.ArrayLike, _drag_coef: float, _wind: float, gravity: float) -> float:
         """Return the y position of the pickleball for detection of ground collision
 
@@ -217,14 +364,22 @@ def solve_system(x0: float,
                                                      (x0, v[0] * np.cos(angle), y0, v[0] * np.sin(angle)), 
                                                      events=hit_ground, 
                                                      args=(drag_coef, wind, gravity)).y_events[0][0][0] - court_length, 
-                              inital_speed_guess)[0]
+                              initial_speed_guess)[0]
     
     # Solve the differential equation with that velocity
-    return si.solve_ivp(derivatives, 
-                        (tmin, tmax), 
-                        (x0, optimal_speed * np.cos(angle), y0, optimal_speed * np.sin(angle)), 
-                        dense_output=True, 
-                        events=[hit_ground, reached_opponent], args=(drag_coef, wind, gravity))
+    if not return_speed:
+        return si.solve_ivp(derivatives, 
+                            (tmin, tmax), 
+                            (x0, optimal_speed * np.cos(angle), y0, optimal_speed * np.sin(angle)), 
+                            dense_output=True, 
+                            events=[hit_ground, reached_opponent], args=(drag_coef, wind, gravity))
+    else:
+        return (si.solve_ivp(derivatives, 
+                             (tmin, tmax), 
+                             (x0, optimal_speed * np.cos(angle), y0, optimal_speed * np.sin(angle)), 
+                             dense_output=True, 
+                             events=[hit_ground, reached_opponent], args=(drag_coef, wind, gravity)), 
+                optimal_speed)
 
 def derivatives(_t: float, current_values: npt.ArrayLike, drag_coef: float, wind: float, gravity: float) -> npt.ArrayLike:
     """Calculate the derivatives of x position, x velocity, y position, and y velocity. 
