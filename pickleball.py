@@ -20,18 +20,18 @@ def main() -> None:
     
     print(f"Drag Coefficient: {DRAG_COEF} 1/m")
     
-    # Plot the time difference histogram
-    time_difference_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
+    # # Plot the time difference histogram
+    # time_difference_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
-    # Plot the initial speed histogram
-    velocity_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
+    # # Plot the initial speed histogram
+    # velocity_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
     # Plot some trajectories
-    for wind in (mph2mps(-15.0), mph2mps(15.0), mph2mps(-10.0), mph2mps(10.0), mph2mps(-5.0), mph2mps(5.0)):
-        trajectory_plot(x0=0.0, 
-                        angle=np.deg2rad(5.0), 
-                        y0=1.0, 
-                        opponent=f2m(43.0), 
+    for wind in (mph2mps(15.0), mph2mps(0.0), mph2mps(-10.0)):
+        trajectory_plot(x0=f2m(11.0), 
+                        angle=np.deg2rad(20.0), 
+                        y0=f2m(3.0), 
+                        opponent=f2m(30.0), 
                         wind=wind, 
                         tmin=T_MIN, 
                         tmax=T_MAX, 
@@ -119,6 +119,8 @@ def trajectory_plot(x0: float,
     # Plot results
     times_before_opponent = np.linspace(0.0, output.t_events[1][0], 100)
     times_after_opponent = np.linspace(output.t_events[1][0], output.t_events[0][0], 100)
+    
+    # Set up the trajectory figure
     plt.figure()
     # Plot the ball trajectory
     plt.plot(m2f(output.sol(times_before_opponent)[0]), m2f(output.sol(times_before_opponent)[2]), c="b")
@@ -134,8 +136,26 @@ def trajectory_plot(x0: float,
     # Formatting
     plt.xlabel("Horizontal Position (feet)")
     plt.ylabel("Vertical Position (feet)")
-    plt.title(f"Ball Trajectory (Wind = {mps2mph(wind):.0f} mph)")
+    # plt.title(f"Ball Trajectory (Wind = {mps2mph(wind):.0f} mph)")
     plt.savefig(f"Trajectory_wind={mps2mph(wind):.0f}mph,x0={m2f(x0):.0f}ft,z0={m2f(opponent):.0f}ft,angle={np.rad2deg(angle):.0f}deg.png")
+    
+    # Set up the velocity figure
+    plt.figure()
+    # Plot the velocity against time
+    plt.plot(times_before_opponent, mps2mph(np.sqrt(output.sol(times_before_opponent)[1] ** 2.0 
+                                                    + output.sol(times_before_opponent)[3] ** 2.0)))
+    plt.plot(times_after_opponent, mps2mph(np.sqrt(output.sol(times_after_opponent)[1] ** 2.0 
+                                                   + output.sol(times_after_opponent)[3] ** 2.0)), c=(0.5,) * 3, ls=":")
+    # Show collision with opponent
+    plt.scatter(output.t_events[1][0], mps2mph(np.sqrt(output.y_events[1][0][1] ** 2.0 + output.y_events[1][0][3] ** 2.0)), 
+                s=25, c="k", zorder=10)
+    plt.text(output.t_events[1][0], mps2mph(np.sqrt(output.y_events[1][0][1] ** 2.0 + output.y_events[1][0][3] ** 2.0)), 
+             f"  {output.t_events[1][0]:.2} seconds")
+    # Formatting
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Speed (mph)")
+    # plt.title(f"Ball Velocity (Wind = {mps2mph(wind):.0f} mph)")
+    plt.savefig(f"Velocity_wind={mps2mph(wind):.0f}mph,x0={m2f(x0):.0f}ft,z0={m2f(opponent):.0f}ft,angle={np.rad2deg(angle):.0f}deg.png")
 
 def time_difference_plot(n_samples: int, 
                          max_wind: float,
