@@ -5,6 +5,10 @@ import scipy.optimize as so
 import matplotlib.pyplot as plt
 # from mayavi import mlab
 from tqdm import tqdm
+from itertools import cycle
+
+# Initialize linestyle cycler
+linestyle_cycler = cycle(['-','--',':','-.'])
 
 def main() -> None:
     # Define constants
@@ -27,75 +31,53 @@ def main() -> None:
     # velocity_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
     # Plot some trajectories
-    for wind in (mph2mps(15.0), mph2mps(0.0), mph2mps(-10.0)):
-        trajectory_plot(x0=f2m(11.0), 
-                        angle=np.deg2rad(20.0), 
-                        y0=f2m(3.0), 
-                        opponent=f2m(30.0), 
-                        wind=wind, 
-                        tmin=T_MIN, 
-                        tmax=T_MAX, 
-                        drag_coef=DRAG_COEF, 
-                        gravity=GRAVITY, 
-                        court_length=COURT_LENGTH, 
-                        initial_speed_guess=INITIAL_SPEED_GUESS)
+    trajectory_plot(x0_list=[f2m(11.0)], 
+                    angle_list=[np.deg2rad(20.0)], 
+                    y0_list=[f2m(3.0)], 
+                    opponent=f2m(35.0), 
+                    wind_list=(mph2mps(-10.0), mph2mps(0.0), mph2mps(10.0), mph2mps(15.0)), 
+                    tmin=T_MIN, 
+                    tmax=T_MAX, 
+                    drag_coef=DRAG_COEF, 
+                    gravity=GRAVITY, 
+                    court_length=COURT_LENGTH, 
+                    initial_speed_guess=INITIAL_SPEED_GUESS)
+    
+    # # Get the time-to-opponent for various initial parameters
+    # for x0 in [f2m(0.0), f2m(11.0), f2m(15.0)]:
+    #     for y0 in [f2m(3.0)]:
+    #         for angle in [np.deg2rad(20.0)]:
+    #             for opponent in [f2m(29.0), f2m(33.0), f2m(44.0)]:
+    #                 for wind in [mph2mps(10.0), mph2mps(15.0), mph2mps(20.0)]:
+    #                     pos = solve_system(x0, 
+    #                                        angle, 
+    #                                        y0, 
+    #                                        opponent, 
+    #                                        T_MIN, 
+    #                                        T_MAX, 
+    #                                        DRAG_COEF, 
+    #                                        wind, 
+    #                                        GRAVITY, 
+    #                                        COURT_LENGTH, 
+    #                                        INITIAL_SPEED_GUESS)
+    #                     neg = solve_system(x0, 
+    #                                        angle, 
+    #                                        y0, 
+    #                                        opponent, 
+    #                                        T_MIN, 
+    #                                        T_MAX, 
+    #                                        DRAG_COEF, 
+    #                                        -wind, 
+    #                                        GRAVITY, 
+    #                                        COURT_LENGTH, 
+    #                                        INITIAL_SPEED_GUESS)
+                        
+    #                     print(f"x0={m2f(x0)}',y0={m2f(y0)}',theta={np.rad2deg(angle)}°,z0={m2f(opponent)}',wind={mps2mph(wind)}mph: "
+    #                           + (str(pos.t_events[1][0] - neg.t_events[1][0]) if len(pos.t_events[1]) > 0 and len(neg.t_events[1]) > 0 
+    #                              else str(pos.t_events[0][0] - neg.t_events[0][0])))
     
     
-    # # Plot speed over time
-    # plt.plot(times_before_opponent, 
-    #          np.sqrt(output.sol(times_before_opponent)[NUM["vx"]] ** 2.0 
-    #                  + output.sol(times_before_opponent)[NUM["vy"]] ** 2.0), c="b")
-    # plt.plot(times_after_opponent, 
-    #          np.sqrt(output.sol(times_after_opponent)[NUM["vx"]] ** 2.0 
-    #                  + output.sol(times_after_opponent)[NUM["vy"]] ** 2.0), c=(0.5,) * 3, ls=":")
-    # plt.xlabel("Time (s)")
-    # plt.ylabel("Ball Speed (m/s)")
-    # plt.title(f"Ball Speed Over Time (Wind = {wind:.0f} m/s)")
-    # plt.show()
-    
-    # # Plot speed relative to wind over time
-    # plt.plot(times_before_opponent, 
-    #          np.sqrt((output.sol(times_before_opponent)[NUM["vx"]] - wind) ** 2.0 
-    #                  + output.sol(times_before_opponent)[NUM["vy"]] ** 2.0), c="b")
-    # plt.plot(times_after_opponent, 
-    #          np.sqrt((output.sol(times_after_opponent)[NUM["vx"]] - wind) ** 2.0 
-    #                  + output.sol(times_after_opponent)[NUM["vy"]] ** 2.0), c=(0.5,) * 3, ls=":")
-    # plt.xlabel("Time (s)")
-    # plt.ylabel("Ball Speed Relative to Air (m/s)")
-    # plt.title(f"Ball Speed Relative to Air Over Time (Wind = {wind:.0f} m/s)")
-    # plt.show()
-    
-        # Solve the system 
-    # print(solve_system(0.0, 1.0, y0, opponent, T_MIN, T_MAX, DRAG_COEF, wind, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS).t_events[1][0])
-    
-    # GRID_SHAPE = (15, 15)
-    # x0s, angles = np.meshgrid(np.linspace(0, 4.572, GRID_SHAPE[0]), np.linspace(0.0, np.pi / 4.0, GRID_SHAPE[1]))
-    # # x0s, angles = np.meshgrid(np.linspace(0, 4.572, GRID_SHAPE[0]), np.linspace(8.8392, 13.4112, GRID_SHAPE[1]))
-    # x0s = x0s.T
-    # angles = angles.T
-    # # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    # figure = mlab.figure("Time to Opponent")
-    
-    # for wind, color, label in zip((-5.0, 0.0, 5.0), ((1.0, 0.0, 0.0), (0.5,) * 3, (0.0, 0.0, 1.0)), ("Against the Wind", "No Wind", "With the Wind")):
-    #     times_to_opponent = np.asarray([solve_system(x0, 
-    #                                                 angle, 
-    #                                                 y0, 
-    #                                                 opponent, 
-    #                                                 T_MIN, 
-    #                                                 T_MAX, 
-    #                                                 DRAG_COEF, 
-    #                                                 wind, 
-    #                                                 GRAVITY, 
-    #                                                 COURT_LENGTH, 
-    #                                                 INITIAL_SPEED_GUESS).t_events[1][0] 
-    #                                     for x0, angle in zip(x0s.ravel(), angles.ravel())]).reshape(GRID_SHAPE)
-        
-    #     # Plot 3D
-    #     surface = mlab.surf(x0s, angles, times_to_opponent, color=color)
-    #     # surface = ax.plot_surface(x0s, angles, times_to_opponent, color=color, label=label)
-    
-    # mlab.axes(xlabel="Initial Position", ylabel="Launch Angle", zlabel="Time to Opponent")
-    # mlab.show()
+
 
 def kde(x: npt.ArrayLike, points: npt.ArrayLike, stdev: float) -> npt.ArrayLike:
     points = np.asarray(points)
@@ -103,59 +85,101 @@ def kde(x: npt.ArrayLike, points: npt.ArrayLike, stdev: float) -> npt.ArrayLike:
     return (np.sum(points[1, np.newaxis] * np.exp(-0.5 * ((points[0, np.newaxis] - x[:, np.newaxis]) / stdev) ** 2.0), axis=1)
             / np.sum(np.exp(-0.5 * ((points[0, np.newaxis] - x[:, np.newaxis]) / stdev) ** 2.0), axis=1))
 
-def trajectory_plot(x0: float, 
-                    angle: float, 
-                    y0: float, 
+def trajectory_plot(x0_list: npt.ArrayLike, 
+                    angle_list: npt.ArrayLike, 
+                    y0_list: npt.ArrayLike, 
                     opponent: float, 
                     tmin: float, 
                     tmax: float, 
                     drag_coef: float, 
-                    wind: float, 
+                    wind_list: npt.ArrayLike, 
                     gravity: float, 
                     court_length: float, 
                     initial_speed_guess: float) -> None:
-    output = solve_system(x0, angle, y0, opponent, tmin, tmax, drag_coef, wind, gravity, court_length, initial_speed_guess)
     
-    # Plot results
-    times_before_opponent = np.linspace(0.0, output.t_events[1][0], 100)
-    times_after_opponent = np.linspace(output.t_events[1][0], output.t_events[0][0], 100)
+    def plot_one_position(x0, angle, y0, wind):
+        output = solve_system(x0, angle, y0, opponent, tmin, tmax, drag_coef, wind, gravity, court_length, initial_speed_guess)
+        
+        # Label trajectory
+        label = ""
+        if len(x0_list) > 1:
+            label += f"Initial Position = {m2f(x0):.0f} feet, "
+        if len(angle_list) > 1:
+            label += f"Launch Angle = {np.rad2deg(angle):.0f}°, "
+        if len(y0_list) > 1:
+            label += f"Initial Height = {m2f(y0):.0f} feet, "
+        if len(wind_list) > 1:
+            label += f"Wind Speed = {mps2mph(wind):.0f} mph, "
+        label = label.strip(", ")
+        
+        # Plot results
+        times = np.linspace(0.0, output.t_events[0][0], 100)
+        
+        # Plot the ball trajectory
+        plt.plot(m2f(output.sol(times)[0]), m2f(output.sol(times)[2]), label=label, ls=next(linestyle_cycler))
     
     # Set up the trajectory figure
-    plt.figure()
-    # Plot the ball trajectory
-    plt.plot(m2f(output.sol(times_before_opponent)[0]), m2f(output.sol(times_before_opponent)[2]), c="b")
-    plt.plot(m2f(output.sol(times_after_opponent)[0]), m2f(output.sol(times_after_opponent)[2]), c=(0.5,) * 3, ls=":")
+    fig = plt.figure(figsize=(12.0, 4.0))
+    
+    for x0 in x0_list:
+        for angle in angle_list:
+            for y0 in y0_list:
+                for wind in wind_list:
+                    plot_one_position(x0, angle, y0, wind)
+    
     # Plot the court
     plt.axhline(0.0, c="k")
     plt.axvline(0.0, c="k")
     plt.axvline(m2f(court_length), c="k")
     plt.plot((m2f(court_length / 2.0), m2f(court_length / 2.0)), (0.0, 3.0), c="k")
-    # Show collision with opponent
-    plt.scatter(m2f(output.y_events[1][0][0]), m2f(output.y_events[1][0][2]), s=25, c="k", zorder=10)
-    plt.text(m2f(output.y_events[1][0][0]), m2f(output.y_events[1][0][2]), f"  {output.t_events[1][0]:.2} seconds")
-    # Formatting
+    
     plt.xlabel("Horizontal Position (feet)")
     plt.ylabel("Vertical Position (feet)")
-    # plt.title(f"Ball Trajectory (Wind = {mps2mph(wind):.0f} mph)")
-    plt.savefig(f"Trajectory_wind={mps2mph(wind):.0f}mph,x0={m2f(x0):.0f}ft,z0={m2f(opponent):.0f}ft,angle={np.rad2deg(angle):.0f}deg.png")
+    
+    ax = plt.gca()
+    ax.set_aspect('equal', adjustable='box')
+    plt.legend()
+    plt.xlim(0.0, 44.0)
+    
+    plt.savefig(f"Trajectory_x0{x0_list}_y0{y0_list}_angle{angle_list}_wind{wind_list}.pdf")
+    
+    
+    def plot_one_speed(x0, angle, y0, wind):
+        output = solve_system(x0, angle, y0, opponent, tmin, tmax, drag_coef, wind, gravity, court_length, initial_speed_guess)
+        
+        # Label trajectory
+        label = ""
+        if len(x0_list) > 1:
+            label += f"Initial Position = {m2f(x0):.0f} feet, "
+        if len(angle_list) > 1:
+            label += f"Launch Angle = {np.rad2deg(angle):.0f}°, "
+        if len(y0_list) > 1:
+            label += f"Initial Height = {m2f(y0):.0f} feet, "
+        if len(wind_list) > 1:
+            label += f"Wind Speed = {mps2mph(wind):.0f} mph, "
+        label = label.strip(", ")
+        
+        # Plot results
+        times = np.linspace(0.0, output.t_events[0][0], 100)
+        
+        # Plot the ball trajectory
+        plt.plot(m2f(output.sol(times)[0]), mps2mph(np.sqrt(output.sol(times)[1] ** 2.0 + output.sol(times)[3] ** 2.0)), label=label, ls=next(linestyle_cycler))
     
     # Set up the velocity figure
-    plt.figure()
-    # Plot the velocity against time
-    plt.plot(times_before_opponent, mps2mph(np.sqrt(output.sol(times_before_opponent)[1] ** 2.0 
-                                                    + output.sol(times_before_opponent)[3] ** 2.0)))
-    plt.plot(times_after_opponent, mps2mph(np.sqrt(output.sol(times_after_opponent)[1] ** 2.0 
-                                                   + output.sol(times_after_opponent)[3] ** 2.0)), c=(0.5,) * 3, ls=":")
-    # Show collision with opponent
-    plt.scatter(output.t_events[1][0], mps2mph(np.sqrt(output.y_events[1][0][1] ** 2.0 + output.y_events[1][0][3] ** 2.0)), 
-                s=25, c="k", zorder=10)
-    plt.text(output.t_events[1][0], mps2mph(np.sqrt(output.y_events[1][0][1] ** 2.0 + output.y_events[1][0][3] ** 2.0)), 
-             f"  {output.t_events[1][0]:.2} seconds")
-    # Formatting
-    plt.xlabel("Time (seconds)")
+    fig = plt.figure()
+    
+    for x0 in x0_list:
+        for angle in angle_list:
+            for y0 in y0_list:
+                for wind in wind_list:
+                    plot_one_speed(x0, angle, y0, wind)
+    
+    plt.xlabel("Horizontal Position (feet)")
     plt.ylabel("Speed (mph)")
-    # plt.title(f"Ball Velocity (Wind = {mps2mph(wind):.0f} mph)")
-    plt.savefig(f"Velocity_wind={mps2mph(wind):.0f}mph,x0={m2f(x0):.0f}ft,z0={m2f(opponent):.0f}ft,angle={np.rad2deg(angle):.0f}deg.png")
+    
+    plt.legend()
+    
+    plt.savefig(f"Speed_x0{x0_list}_y0{y0_list}_angle{angle_list}_wind{wind_list}.pdf")
 
 def time_difference_plot(n_samples: int, 
                          max_wind: float,
