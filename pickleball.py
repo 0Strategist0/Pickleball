@@ -16,27 +16,27 @@ def main() -> None:
     T_MIN = 0.0
     T_MAX = 10.0
     DRAG_COEF = 0.5 * (1.2) * (37.0 * 10.0 ** (-3.0)) ** 2.0 * np.pi * 0.6 / (24.0 * 10 ** (-3.0)) # 0.5 * rho * A * CD / m
-    INITIAL_SPEED_GUESS = 10.0
+    INITIAL_SPEED_GUESS = 10.08
     COURT_LENGTH = f2m(44.0)
     GRAVITY = 9.81
-    N_RANDOM_SAMPLES = 10000
+    N_RANDOM_SAMPLES = 1000
     KDE_STDEV = 2.0
     MAX_WIND = 15.0
     
     print(f"Drag Coefficient: {DRAG_COEF} 1/m")
     
-    # # Plot the time difference histogram
+    # Plot the time difference histogram
     # time_difference_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
     # # Plot the initial speed histogram
     # velocity_plot(N_RANDOM_SAMPLES, MAX_WIND, T_MIN, T_MAX, DRAG_COEF, GRAVITY, COURT_LENGTH, INITIAL_SPEED_GUESS, KDE_STDEV)
     
-    # # Plot some trajectories
-    # trajectory_plot(x0_list=[f2m(11.0)], 
+    # Plot some trajectories
+    # trajectory_plot(x0_list=[f2m(0.0)], 
     #                 angle_list=[np.deg2rad(20.0)], 
     #                 y0_list=[f2m(3.0)], 
     #                 opponent=f2m(35.0), 
-    #                 wind_list=(mph2mps(-10.0), mph2mps(0.0), mph2mps(10.0), mph2mps(15.0)), 
+    #                 wind_list=(mph2mps(-20.0),),#, mph2mps(0.0), mph2mps(10.0), mph2mps(15.0)), 
     #                 tmin=T_MIN, 
     #                 tmax=T_MAX, 
     #                 drag_coef=DRAG_COEF, 
@@ -47,11 +47,11 @@ def main() -> None:
     # Get the time-to-opponent for various initial parameters
     array = np.zeros((3, 3, 3, 3, 3))
     for ix, x0 in enumerate([f2m(0.0), f2m(11.0), f2m(15.0)]):
-        for iy, y0 in enumerate([f2m(1.0), f2m(3.0), f2m(7.0)]):
-            for ia, angle in enumerate([np.deg2rad(0.0), np.deg2rad(20.0), np.deg2rad(30.0)]):
+        for iy, y0 in enumerate((f2m(2.0), f2m(3.0), f2m(4.0))):#enumerate([f2m(1.0), f2m(3.0), f2m(7.0)]):
+            for ia, angle in enumerate((np.deg2rad(10.0), np.deg2rad(20.0), np.deg2rad(30.0))):#enumerate([np.deg2rad(0.0), np.deg2rad(20.0), np.deg2rad(30.0)]):
                 for io, opponent in enumerate([f2m(29.0), f2m(33.0), f2m(44.0)]):
                     for iw, wind in enumerate([mph2mps(10.0), mph2mps(15.0), mph2mps(20.0)]):
-                        pos = solve_system(x0, 
+                        pos, vpos = solve_system(x0, 
                                            angle, 
                                            y0, 
                                            opponent, 
@@ -61,8 +61,9 @@ def main() -> None:
                                            wind, 
                                            GRAVITY, 
                                            COURT_LENGTH, 
-                                           INITIAL_SPEED_GUESS)
-                        neg = solve_system(x0, 
+                                           INITIAL_SPEED_GUESS, 
+                                           True)
+                        neg, vneg = solve_system(x0, 
                                            angle, 
                                            y0, 
                                            opponent, 
@@ -72,9 +73,10 @@ def main() -> None:
                                            -wind, 
                                            GRAVITY, 
                                            COURT_LENGTH, 
-                                           INITIAL_SPEED_GUESS)
+                                           INITIAL_SPEED_GUESS, 
+                                           True)
                         
-                        # print(f"x0={m2f(x0)}',y0={m2f(y0)}',theta={np.rad2deg(angle)}°,z0={m2f(opponent)}',wind={mps2mph(wind)}mph: "
+                        # print(f"x0={m2f(x0)}',y0={m2f(y0)}',theta={np.rad2deg(angle)}°,z0={m2f(opponent)}',wind={mps2mph(wind)}mph,vpos={mps2mph(vpos)},vneg={mps2mph(vneg)}: "
                         #       + (str(pos.t_events[1][0] - neg.t_events[1][0]) if len(pos.t_events[1]) > 0 and len(neg.t_events[1]) > 0 
                         #          else str(pos.t_events[0][0] - neg.t_events[0][0])))
                         
@@ -85,7 +87,7 @@ def main() -> None:
         for io, opponent in enumerate([f2m(29.0), f2m(33.0), f2m(44.0)]):
             for iw, wind in enumerate([mph2mps(10.0), mph2mps(15.0), mph2mps(20.0)]):
                 print(f"x0={m2f(x0)}',z0={m2f(opponent)}',wind={mps2mph(wind)}mph: "
-                              + f"paper: {array[ix, 1, 1, io, iw]}, max (y0={[1.0, 3.0, 7.0][np.unravel_index(array[ix, :, :, io, iw].argmax(), (3, 3))[0]]}, angle={[0.0, 20.0, 30.0][np.unravel_index(array[ix, :, :, io, iw].argmax(), (3, 3))[1]]}): {array[ix, :, :, io, iw].max()}, min (y0={[1.0, 3.0, 7.0][np.unravel_index(array[ix, :, :, io, iw].argmin(), (3, 3))[0]]}, angle={[0.0, 20.0, 30.0][np.unravel_index(array[ix, :, :, io, iw].argmin(), (3, 3))[1]]}): {array[ix, :, :, io, iw].min()}")
+                              + f"paper: {array[ix, 1, 1, io, iw]}, max (y0={[2.0, 3.0, 4.0][np.unravel_index(array[ix, :, :, io, iw].argmax(), (3, 3))[0]]}, angle={[10.0, 20.0, 30.0][np.unravel_index(array[ix, :, :, io, iw].argmax(), (3, 3))[1]]}): {array[ix, :, :, io, iw].max()}, min (y0={[2.0, 3.0, 4.0][np.unravel_index(array[ix, :, :, io, iw].argmin(), (3, 3))[0]]}, angle={[10.0, 20.0, 30.0][np.unravel_index(array[ix, :, :, io, iw].argmin(), (3, 3))[1]]}): {array[ix, :, :, io, iw].min()}")
                 
 
 
@@ -148,8 +150,8 @@ def trajectory_plot(x0_list: npt.ArrayLike,
     
     ax = plt.gca()
     ax.set_aspect('equal', adjustable='box')
-    plt.legend(title="Wind Speed", title_fontsize=0.8 * FONTSIZE, fontsize=0.75 * FONTSIZE)
-    plt.xlim(0.0, 44.0)
+    # plt.legend(title="Wind Speed", title_fontsize=0.8 * FONTSIZE, fontsize=0.75 * FONTSIZE)
+    # plt.xlim(0.0, 44.0)
     plt.yticks((0.0, 6.0), fontsize=FONTSIZE)
     plt.xticks((0.0, 11.0, 22.0, 33.0, 44.0), fontsize=FONTSIZE)
     
@@ -192,7 +194,7 @@ def trajectory_plot(x0_list: npt.ArrayLike,
     plt.xticks(fontsize=FONTSIZE)
     plt.yticks(fontsize=FONTSIZE)
     
-    plt.legend(title="Wind Speed", title_fontsize=0.8 * FONTSIZE, fontsize=0.75 * FONTSIZE)
+    # plt.legend(title="Wind Speed", title_fontsize=0.8 * FONTSIZE, fontsize=0.75 * FONTSIZE)
     
     # plt.savefig(f"Speed_x0{x0_list}_y0{y0_list}_angle{angle_list}_wind{wind_list}.pdf")
     plt.savefig("SpeedPlot.pdf")
